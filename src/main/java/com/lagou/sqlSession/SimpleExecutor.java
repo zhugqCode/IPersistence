@@ -16,6 +16,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class SimpleExecutor implements  Executor {
@@ -87,6 +88,67 @@ public class SimpleExecutor implements  Executor {
             return (List<E>) objects;
 
     }
+
+    @Override
+    public int update(Configuration configuration, MappedStatement mappedStatement, Object... params) throws Exception {
+        if(params != null){
+            params = Arrays.copyOf(params, params.length+1);
+            params[params.length-1] = "update";
+        }
+        //执行sql
+        int result = (Integer) executorSql(configuration,mappedStatement,params);
+        //封装结果
+        return result;
+    }
+
+    @Override
+    public boolean delete(Configuration configuration, MappedStatement mappedStatement, Object... params) throws Exception {
+        if(params != null){
+            params = Arrays.copyOf(params, params.length+1);
+            params[params.length-1] = "delete";
+        }
+        //执行sql
+        boolean result = (Boolean) executorSql(configuration,mappedStatement,params);
+        //封装结果
+        return result;
+    }
+
+
+    private Object executorSql(Configuration configuration, MappedStatement mappedStatement, Object... params)  throws Exception{
+        // 1. 注册驱动，获取连接
+        Connection connection = configuration.getDataSource().getConnection();
+        //获取sql
+        String sql = mappedStatement.getSql();
+        BoundSql boundSql = getBoundSql(sql);
+        PreparedStatement preparedStatement = connection.prepareStatement(boundSql.getSqlText());
+
+        //替换sql中的占位符
+        String paramterType = mappedStatement.getParamterType();
+        Class<?> paramtertypeClass = getClassType(paramterType);
+
+
+        List<ParameterMapping> parameterMappingList = boundSql.getParameterMappingList();
+        for(int i=0;i<parameterMappingList.size();i++){
+            ParameterMapping mapping = parameterMappingList.get(i);
+            //反射
+            Field declaredField = paramtertypeClass.getDeclaredField( mapping.getContent());
+            //暴力访问
+            declaredField.setAccessible(true);
+            Object o = declaredField.get(params[0]);
+            preparedStatement.setObject(i+1,o);
+        }
+        //执行sql
+        Object result = null;
+
+        String type = (String) params[1];
+       if(type.contains("update")){
+            result = preparedStatement.executeUpdate();
+        }else if(type.contains("delete")){
+            result = preparedStatement.execute();
+        }
+        return result;
+    }
+
 
     private Class<?> getClassType(String paramterType) throws ClassNotFoundException {
         if(paramterType!=null){

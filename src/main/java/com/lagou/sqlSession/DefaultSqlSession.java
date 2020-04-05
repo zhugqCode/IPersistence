@@ -33,8 +33,22 @@ public class DefaultSqlSession implements SqlSession {
         }else {
             throw new RuntimeException("查询结果为空或者返回结果过多");
         }
+    }
 
+    @Override
+    public int update(String statementid, Object... params) throws Exception {
+        //将要去完成对simpleExecutor里的query方法的调用
+        SimpleExecutor simpleExecutor = new SimpleExecutor();
+        MappedStatement mappedStatement = configuration.getMappedStatementMap().get(statementid);
+        return simpleExecutor.update(configuration, mappedStatement, params);
+    }
 
+    @Override
+    public boolean delete(String statementid, Object... params) throws Exception {
+        //将要去完成对simpleExecutor里的query方法的调用
+        SimpleExecutor simpleExecutor = new SimpleExecutor();
+        MappedStatement mappedStatement = configuration.getMappedStatementMap().get(statementid);
+        return simpleExecutor.delete(configuration, mappedStatement, params);
     }
 
     @Override
@@ -65,6 +79,12 @@ public class DefaultSqlSession implements SqlSession {
                 if(genericReturnType instanceof ParameterizedType){
                     List<Object> objects = selectList(statementId, args);
                     return objects;
+                }else if(genericReturnType.getTypeName().equals("int")){
+                    int count = update(statementId, args);
+                    return count;
+                }else if(genericReturnType.getTypeName().equals("boolean")){
+                    boolean isDelete = delete(statementId, args);
+                    return isDelete;
                 }
 
                 return selectOne(statementId,args);
